@@ -70,6 +70,7 @@ func main() {
 			Format:        event.FormatHTML,
 			FormattedBody: formatPreview(meta),
 		}
+		content.SetReply(evt)
 		if _, err := bot.Client().SendMessageEvent(ctx, evt.RoomID, event.EventMessage, content); err != nil {
 			log.Error().Err(err).Stringer("room_id", evt.RoomID).Msg("Failed to send link preview")
 		}
