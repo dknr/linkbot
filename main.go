@@ -57,6 +57,7 @@ func main() {
 				Msg("Failed to fetch Open Graph")
 			return
 		}
+		meta.URL = cleanURL(meta.URL)
 		log.Debug().
 			Str("url", link).
 			Str("title", meta.Title).
@@ -64,8 +65,10 @@ func main() {
 			Stringer("event_id", evt.ID).
 			Msg("Sending link preview")
 		content := &event.MessageEventContent{
-			MsgType: event.MsgNotice,
-			Body:    formatPreview(meta),
+			MsgType:       event.MsgNotice,
+			Body:          plainPreview(meta),
+			Format:        event.FormatHTML,
+			FormattedBody: formatPreview(meta),
 		}
 		if _, err := bot.Client().SendMessageEvent(ctx, evt.RoomID, event.EventMessage, content); err != nil {
 			log.Error().Err(err).Stringer("room_id", evt.RoomID).Msg("Failed to send link preview")

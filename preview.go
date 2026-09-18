@@ -43,7 +43,7 @@ func firstAllowedLink(body string) (string, bool) {
 		if !isAllowed(u.Host) {
 			continue
 		}
-		return u.String(), true
+		return cleanParsed(u), true
 	}
 	return "", false
 }
@@ -58,6 +58,49 @@ func isAllowed(host string) bool {
 		}
 	}
 	return false
+}
+
+// isX reports whether host is x.com or a subdomain of it.
+func isX(host string) bool {
+	host = strings.ToLower(host)
+	return host == "x.com" || strings.HasSuffix(host, ".x.com")
+}
+
+// trackingParams are unambiguous analytics/click-tracking query params that are
+// stripped from every link, regardless of host.
+var trackingParams = map[string]bool{
+	"utm": true, "utm_source": true, "utm_medium": true, "utm_campaign": true,
+	"utm_term": true, "utm_content": true, "utm_id": true,
+	"fbclid": true, "gclid": true, "msclkid": true, "yclid": true,
+	"mc_cid": true, "mc_eid": true, "igshid": true, "igsh": true,
+}
+
+// xTrackingParams are extra share-tracking params stripped only on x.com links
+// (e.g. ?s=20 and ?t=... added to shared tweet URLs).
+var xTrackingParams = map[string]bool{"s": true, "t": true}
+
+// cleanParsed drops tracking query params from a parsed URL and returns the
+// cleaned URL string.
+func cleanParsed(u *url.URL) string {
+	host := strings.ToLower(u.Host)
+	q := u.Query()
+	for k := range q {
+		key := strings.ToLower(k)
+		if trackingParams[key] || (isX(host) && xTrackingParams[key]) {
+			q.Del(k)
+		}
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+// cleanURL drops tracking query params from a link string.
+func cleanURL(link string) string {
+	u, err := url.Parse(link)
+	if err != nil {
+		return link
+	}
+	return cleanParsed(u)
 }
 
 // fetchOG downloads the page and extracts its Open Graph meta tags. Redirects
@@ -138,9 +181,33 @@ func extractOG(doc *html.Node, link string) ogMeta {
 	return meta
 }
 
-// formatPreview renders the preview as a plain-text reply: title, description,
-// then the resolved URL.
+// formatPreview renders the styled preview as HTML: the title as a link, the
+// description in a block quote. The standalone URL line is dropped since the
+// title itself is the link. All page-supplied text is escaped so a hostile
+// og:title or og:description cannot inject markup.
 func formatPreview(meta ogMeta) string {
+	var b strings.Builder
+	if meta.Title != "" {
+		b.WriteString("<a href=\"")
+		b.WriteString(html.EscapeString(meta.URL))
+		b.WriteString("\">")
+		b.WriteString(html.EscapeString(meta.Title))
+		b.WriteString("</a>")
+	}
+	if meta.Description != "" {
+		if b.Len() > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString("<blockquote>")
+		b.WriteString(html.EscapeString(meta.Description))
+		b.WriteString("</blockquote>")
+	}
+	return b.String()
+}
+
+// plainPreview is the plain-text fallback used as the Body of an HTML message.
+// It keeps the URL so clients that do not render HTML still see the link.
+func plainPreview(meta ogMeta) string {
 	var b strings.Builder
 	if meta.Title != "" {
 		b.WriteString(meta.Title)
@@ -150,6 +217,8 @@ func formatPreview(meta ogMeta) string {
 		b.WriteString(meta.Description)
 		b.WriteString("\n")
 	}
-	b.WriteString(meta.URL)
+	if meta.URL != "" {
+		b.WriteString(meta.URL)
+	}
 	return b.String()
 }

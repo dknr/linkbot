@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 
@@ -16,11 +17,11 @@ func TestFirstAllowedLink(t *testing.T) {
 		{"check out https://github.com/foo/bar", "https://github.com/foo/bar", true},
 		{"https://www.github.com/a", "https://www.github.com/a", true}, // subdomain allowed
 		{"https://x.com/user", "https://x.com/user", true},
-		{"https://evil.com/payload", "", false},                // not whitelisted
-		{"https://sub.evil.com/payload", "", false},            // subdomain not whitelisted
-		{"https://github.com.evil.com/x", "", false},           // suffix spoof rejected
+		{"https://evil.com/payload", "", false},      // not whitelisted
+		{"https://sub.evil.com/payload", "", false},  // subdomain not whitelisted
+		{"https://github.com.evil.com/x", "", false}, // suffix spoof rejected
 		{"no links here", "", false},
-		{"ftp://github.com/x", "", false}, // non-http scheme rejected
+		{"ftp://github.com/x", "", false},                                              // non-http scheme rejected
 		{"https://github.com/a then https://evil.com/b", "https://github.com/a", true}, // first allowed wins
 	}
 	for _, tc := range cases {
@@ -74,8 +75,67 @@ func TestExtractOG(t *testing.T) {
 
 func TestFormatPreview(t *testing.T) {
 	got := formatPreview(ogMeta{Title: "T", Description: "D", URL: "https://github.com/a"})
-	want := "T\nD\nhttps://github.com/a"
+	want := `<a href="https://github.com/a">T</a>
+<blockquote>D</blockquote>`
 	if got != want {
 		t.Errorf("formatPreview = %q, want %q", got, want)
+	}
+}
+
+func TestPlainPreview(t *testing.T) {
+	got := plainPreview(ogMeta{Title: "T", Description: "D", URL: "https://github.com/a"})
+	want := "T\nD\nhttps://github.com/a"
+	if got != want {
+		t.Errorf("plainPreview = %q, want %q", got, want)
+	}
+}
+
+func TestPlainPreviewEmptyFields(t *testing.T) {
+	tests := []struct {
+		meta ogMeta
+		name string
+	}{
+		{ogMeta{URL: "https://x.com/a"}, "title only"},
+		{ogMeta{Description: "desc", URL: "https://x.com/a"}, "description only"},
+		{ogMeta{Title: "T", Description: "D"}, "no url"},
+	}
+	for _, tc := range tests {
+		got := plainPreview(tc.meta)
+		if got == "" {
+			t.Errorf("plainPreview(%s) returned empty string", tc.name)
+		}
+	}
+}
+
+func TestCleanURL(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"https://github.com/foo/bar?utm_source=twitter", "https://github.com/foo/bar"},
+		{"https://github.com/foo/bar?fbclid=abc&ref=x", "https://github.com/foo/bar?ref=x"},
+		{"https://github.com/foo/bar", "https://github.com/foo/bar"},
+		{"https://github.com/foo/bar?ref=homepage", "https://github.com/foo/bar?ref=homepage"}, // not a tracking param
+		{"https://x.com/user/status/123?s=20&t=foo", "https://x.com/user/status/123"},
+		{"https://x.com/user/status/123?utm_campaign=x_social", "https://x.com/user/status/123"},
+		{"https://x.com/user/status/123?foo=bar", "https://x.com/user/status/123?foo=bar"}, // not tracking
+	}
+	for _, tc := range cases {
+		got := cleanURL(tc.in)
+		if got != tc.want {
+			t.Errorf("cleanURL(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestCleanURLPreservesPathAndQuery(t *testing.T) {
+	u, err := url.Parse("https://github.com/foo/bar?utm_source=x&q=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleaned := cleanParsed(u)
+	expected := "https://github.com/foo/bar?q=1"
+	if cleaned != expected {
+		t.Errorf("cleanParsed = %q, want %q", cleaned, expected)
 	}
 }
