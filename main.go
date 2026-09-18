@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog"
 	"maunium.net/go/mautrix/event"
 
-	"ragecore"
+	"github.com/dknr/ragecore"
 )
 
 func main() {

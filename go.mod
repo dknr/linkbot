@@ -3,10 +3,10 @@ module linkbot
 go 1.27.0
 
 require (
+	github.com/dknr/ragecore v0.0.1
 	github.com/rs/zerolog v1.35.1
 	golang.org/x/net v0.59.0
 	maunium.net/go/mautrix v0.31.0
-	ragecore v0.0.0
 )
 
 require (
@@ -25,5 +25,3 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )
-
-replace ragecore => /home/dknr/src/ragecore
