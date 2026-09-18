@@ -1,0 +1,25 @@
+[Unit]
+Description=linkbot Matrix link preview bot
+After=network.target
+
+[Service]
+Type=simple
+User=linkbot
+Group=linkbot
+WorkingDirectory=/var/lib/linkbot
+ExecStart=/usr/local/bin/linkbot -config /etc/linkbot/config.json
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=linkbot
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/linkbot
+
+[Install]
+WantedBy=multi-user.target
