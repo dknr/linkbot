@@ -8,7 +8,7 @@ messages containing links with an Open Graph preview.
   `og:description` and `og:url`, and replies with a styled HTML preview
   (title as link, description in a blockquote).
 - Redirects are followed only while the destination host stays whitelisted.
-- Uses ragecore for login, E2EE, device verification, and auto-joining rooms.
+- Uses ragecore for login, E2EE, and device verification.
 
 ## Build
 
